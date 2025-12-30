@@ -1,0 +1,85 @@
+const canvas = document.getElementById('tattoo-canvas');
+const ctx = canvas?.getContext('2d');
+const appointmentForm = document.getElementById('appointment-form');
+const appointmentsList = document.getElementById('appointments');
+const uploadInput = document.getElementById('customer-design-upload');
+const previewGallery = document.getElementById('customer-preview-gallery');
+let isDrawing = false;
+
+// 1. Image Preview Fix
+if (uploadInput) {
+    uploadInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                previewGallery.innerHTML = `<img src="${event.target.result}" style="width:150px; border-radius:10px; margin-top:10px;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+// 2. Drawing Logic
+if (canvas) {
+    canvas.addEventListener('mousedown', () => isDrawing = true);
+    canvas.addEventListener('mouseup', () => { isDrawing = false; ctx.beginPath(); });
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        ctx.strokeStyle = document.getElementById('color-picker').value;
+        ctx.lineWidth = 3;
+        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+        ctx.stroke();
+    });
+    document.getElementById('clear').onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// 3. Booking Logic with ERROR LOGGING
+appointmentForm?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.innerText = "Sending...";
+
+    // This collects data from your form fields
+    const templateParams = {
+        user_name: document.getElementById('user_name').value,
+        user_email: document.getElementById('user_email').value,
+        date: document.getElementById('date').value,
+        time: document.getElementById('time').value,
+        message: document.getElementById('message').value
+    };
+
+    emailjs.send("service_bmhafjm", "template_oztapjd", templateParams)
+    .then(() => {
+        alert("✅ Success! Your booking request was sent.");
+        
+        // Save to local storage for the 'Manage' section
+        let appts = JSON.parse(localStorage.getItem('appointments')) || [];
+        appts.push(templateParams);
+        localStorage.setItem('appointments', JSON.stringify(appts));
+        
+        appointmentForm.reset();
+        btn.innerText = "SEND BOOKING REQUEST";
+    }, (err) => {
+        btn.innerText = "SEND BOOKING REQUEST";
+        alert("❌ Failed to send. Error: " + JSON.stringify(err));
+    });
+});
+
+// 4. Manage Bookings
+function loadAppointments() {
+    const email = document.getElementById('manage-email').value.toLowerCase();
+    const appts = JSON.parse(localStorage.getItem('appointments')) || [];
+    const filtered = appts.filter(a => a.user_email.toLowerCase() === email);
+    
+    if (filtered.length === 0) {
+        appointmentsList.innerHTML = "<li>No bookings found.</li>";
+    } else {
+        appointmentsList.innerHTML = filtered.map(a => `
+            <li style="background:#1a1a1c; padding:10px; margin-top:5px; border-radius:5px; list-style:none;">
+                ${a.date} at ${a.time}
+            </li>
+        `).join('');
+    }
+}
